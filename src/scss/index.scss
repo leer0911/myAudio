@@ -1,10 +1,5 @@
 @import 'variables';
 @import 'mixins';
-
-body {
-  background: #f2f5f7;
-}
-
 .myaudio__controls {
   display: flex;
   align-items: center;
@@ -17,48 +12,26 @@ body {
   border: $myaudio-audio-controls-border;
   color: $myaudio-audio-control-color;
 
-  button {
-    &.tab-focus:focus,
-    &:hover {
-      background: $myaudio-audio-control-bg-hover;
-      color: $myaudio-audio-control-color-hover;
-    }
-  }
-
   & > * {
     pointer-events: all;
   }
 
-  // Spacing
+  // 按钮间隙
   > button,
   .myaudio__progress,
-  .myaudio__time {
+  .myaudio__time,
+  .myaudio__volume {
     margin-left: ($myaudio-control-spacing / 2);
-
     &:first-child {
       margin-left: 0;
     }
   }
-  .myaudio__volume {
-    margin-left: ($myaudio-control-spacing / 2);
-  }
-  [data-myaudio='pause'] {
-    margin-left: 0;
-  }
 
-  // Buttons
   button {
-    position: relative;
-    display: inline-block;
-    flex-shrink: 0;
-    overflow: visible; // IE11
-    vertical-align: middle;
     padding: ($myaudio-control-spacing * 0.7);
     border: 0;
     background: transparent;
-    border-radius: 3px;
     cursor: pointer;
-    transition: background 0.3s ease, color 0.3s ease, opacity 0.3s ease;
     color: inherit;
 
     svg {
@@ -68,17 +41,16 @@ body {
       fill: currentColor;
     }
 
-    // Default focus
     &:focus {
       outline: 0;
     }
   }
 
-  // Hide toggle icons by default
   .icon--muted {
     display: none;
   }
 
+  // 进度条按钮 -----------------------------------------------------------
   input[type='range'] {
     display: block;
     height: ($myaudio-range-thumb-height * $myaudio-range-thumb-active-scale);
@@ -174,6 +146,7 @@ body {
       margin-left: $myaudio-control-spacing;
     }
   }
+
 }
 
 .myaudio__progress {
@@ -182,6 +155,7 @@ body {
   position: relative;
 }
 
+// 进度条及声音条样式 -----------------------------------------------------------
 .myaudio__progress--buffer,
 .myaudio__progress--played,
 .myaudio__volume--display {
@@ -214,6 +188,7 @@ body {
     border-radius: 100px;
   }
 }
+
 .myaudio__progress--played,
 .myaudio__volume--display {
   z-index: 1;
@@ -258,8 +233,7 @@ body {
   color: $myaudio-audio-progress-buffered-bg;
 }
 
-// Time
-// --------------------------------------------------------------
+// 时间 -----------------------------------------------------------
 .myaudio__time {
   display: inline-block;
   vertical-align: middle;
@@ -280,29 +254,28 @@ body {
   }
 }
 
-// Volume
-// --------------------------------------------------------------
+// 声音 -----------------------------------------------------------
 .myaudio__volume {
   display: none;
-}
-.myaudio .myaudio__volume {
   flex: 1;
   position: relative;
-
   input[type='range'] {
     position: relative;
     z-index: 2;
   }
+
   @media (min-width: $myaudio-bp-screen-sm) {
     display: block;
     max-width: 60px;
   }
+
   @media (min-width: $myaudio-bp-screen-md) {
     max-width: 100px;
   }
 }
 
-// Loading state
+
+// 加载样式 -----------------------------------------------------------
 .myaudio--loading .myaudio__progress--buffer {
   animation: myaudio-progress 1s linear infinite;
   background-size: $myaudio-progress-loading-size $myaudio-progress-loading-size;
@@ -321,8 +294,6 @@ body {
   background-color: $myaudio-audio-progress-buffered-bg;
 }
 
-// Animation
-// ---------------------------------------
 @keyframes myaudio-progress {
   to {
     background-position: $myaudio-progress-loading-size 0;
