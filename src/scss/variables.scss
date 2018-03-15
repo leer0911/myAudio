@@ -1,0 +1,54 @@
+// Settings
+$myaudio-border-box:                       true !default;
+$myaudio-touch-action:                     true !default;
+$myaudio-sr-only-important:                true !default;
+
+// Colors
+$myaudio-color-main:                       #3498db !default;
+
+// Font sizes
+$myaudio-font-family:                      Avenir, 'Avenir Next', 'Helvetica Neue', 'Segoe UI', Helvetica, Arial, sans-serif !default;
+$myaudio-font-size-small:                  14px !default;
+$myaudio-font-size-base:                   16px !default;
+
+// Controls
+$myaudio-control-icon-size:                24px !default;
+$myaudio-control-spacing:                  10px !default;
+$myaudio-control-padding:                  ($myaudio-control-spacing * .7) !default;
+$myaudio-video-controls-bg:                #000 !default;
+$myaudio-video-control-color:              #fff !default;
+$myaudio-video-control-color-hover:        #fff !default;
+$myaudio-video-control-bg-hover:           $myaudio-color-main !default;
+$myaudio-audio-controls-bg:                #fff !default;
+$myaudio-audio-controls-border:            1px solid #dbe3e8 !default;
+$myaudio-audio-control-color:              #565D64 !default;
+$myaudio-audio-control-color-hover:        #fff !default;
+$myaudio-audio-control-bg-hover:           $myaudio-color-main;
+
+
+// Progress
+$myaudio-progress-loading-size:            25px !default;
+$myaudio-progress-loading-bg:              transparentize(#000, .85) !default;
+$myaudio-video-progress-bg:                transparentize(#fff, .75) !default;
+$myaudio-video-progress-buffered-bg:       $myaudio-video-progress-bg !default;
+$myaudio-audio-progress-bg:                transparentize(#C6D6DB, .33) !default;
+$myaudio-audio-progress-buffered-bg:       $myaudio-audio-progress-bg !default;
+
+// Range sliders
+$myaudio-range-track-height:               8px !default;
+$myaudio-range-thumb-height:               floor($myaudio-range-track-height * 2) !default;
+$myaudio-range-thumb-width:                floor($myaudio-range-track-height * 2) !default;
+$myaudio-range-thumb-bg:                   #fff !default;
+$myaudio-range-thumb-border:               2px solid transparent !default;
+$myaudio-range-thumb-shadow:               0 1px 1px transparentize($myaudio-video-controls-bg, .85), 0 0 0 1px transparentize(#000, .85) !default;
+$myaudio-range-thumb-active-border-color:  #fff !default;
+$myaudio-range-thumb-active-bg:            $myaudio-video-control-bg-hover !default;
+$myaudio-range-thumb-active-scale:         1.25 !default;
+$myaudio-video-range-track-bg:             $myaudio-video-progress-buffered-bg !default;
+$myaudio-audio-range-track-bg:             $myaudio-audio-progress-buffered-bg !default;
+$myaudio-range-selected-bg:                $myaudio-color-main !default;
+
+// Breakpoints
+$myaudio-bp-screen-sm:                     480px !default;
+$myaudio-bp-screen-md:                     768px !default;
+$myaudio-bp-screen-lg:                     1024px !default;

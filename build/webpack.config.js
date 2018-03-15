@@ -38,14 +38,14 @@ module.exports = {
         test: /\.scss$/,
         use: [
           { loader: 'style-loader' },
-          {
-            loader: 'css-loader',
-            options: {
-              sourceMap: true,
-              modules: true,
-              localIdentName: '[local]_[hash:base64:5]'
-            }
-          },
+          // {
+          //   loader: 'css-loader',
+          //   options: {
+          //     sourceMap: true,
+          //     modules: true,
+          //     localIdentName: '[local]_[hash:base64:5]'
+          //   }
+          // },
           {
             loader: 'postcss-loader',
             options: {

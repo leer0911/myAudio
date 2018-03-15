@@ -3,3 +3,5 @@
 .history/
 node_modules
 dist/
+docs/myaudio
+package-lock.json

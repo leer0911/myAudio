@@ -1,0 +1,23 @@
+@mixin myaudio-range-track() {
+    height: $myaudio-range-track-height;
+    background: transparent;
+    border: 0;
+    border-radius: ($myaudio-range-track-height / 2);
+    user-select: none;
+}
+@mixin myaudio-range-thumb() {
+    position: relative;
+    height: $myaudio-range-thumb-height;
+    width: $myaudio-range-thumb-width;
+    background: $myaudio-range-thumb-bg;
+    border: $myaudio-range-thumb-border;
+    border-radius: 100%;
+    transition: background .2s ease, border .2s ease, transform .2s ease;
+    box-shadow: $myaudio-range-thumb-shadow;
+    box-sizing: border-box;
+}
+@mixin myaudio-range-thumb-active() {
+    background: $myaudio-range-thumb-active-bg;
+    border-color: $myaudio-range-thumb-active-border-color;
+    transform: scale($myaudio-range-thumb-active-scale);
+}
