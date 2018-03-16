@@ -1,25 +1,83 @@
 import './scss/index.scss';
-import defaultConfig from './config';
 import './iconfont';
 import _ from './utils';
+import defaultConfig from './config';
 
 /**
  * @param media
  *
  * @class myAudio
  */
+
 class MyAudio {
   constructor(media, config = {}) {
     this.config = Object.assign(defaultConfig, config);
     this.html = this.config.html;
     this.media = media;
+    this.timers = {};
+    // 检查传入参数是否合法
+    // --------------------------------------------------
+    if (!_.is.htmlElement(this.media)) {
+      this.error(
+        '不是合法的 media 元素，请从第一个参数传入正确的 media 元素 !'
+      );
+      return;
+    }
+
+    // 检查浏览器版本及支持情况
+    // --------------------------------------------------
+    this.browser = _.browserSniff();
+    this.supported = this.supported();
+    this.log('[浏览器信息：]', this.browser, '[支持情况：]', this.supported);
+    if (!this.supported.basic) {
+      this.error('该浏览器不支持 Audio 元素，请换高版本浏览器');
+      return;
+    }
+
     this.init();
   }
   init() {
-    // 控制器 UI 搭建
-    this.injectControls();
+    if (this.isInit) {
+      return null;
+    }
+
+    // 用于保存播放器状态
+    // --------------------------------------------------
+    if (this.config.storage.enabled) {
+      this.setupStorage();
+      this.log('[生命周期]', 'Storage 设置完成!');
+    }
+
+    // 在media外新建一层div
+    // --------------------------------------------------
+    this.container = _.wrap(this.media, document.createElement('div'));
+    this.container.setAttribute('tabindex', 0);
+    _.toggleClass(
+      this.container,
+      this.config.selectors.container.replace('.', ''),
+      this.supported.full
+    );
+
+    // UI 构建
+    // --------------------------------------------------
+    this.setupMedia(); // 区分设备，添加相应类名
+    this.setupInterface(); // DOM 构建
+    this.log('[生命周期]', '界面 构建完成!');
+    this.ready();
+
+    // // Successful setup
+    this.isInit = true;
   }
-  usrConsole(type, args) {
+  supported() {
+    let browser = this.browser;
+    let isOldIE = browser.isIE && browser.version <= 9;
+    let audioSupport = !!document.createElement('audio').canPlayType;
+    return {
+      basic: audioSupport,
+      full: audioSupport && !isOldIE
+    };
+  }
+  console(type, args) {
     if (this.config.debug && window.console) {
       args = Array.prototype.slice.call(args);
       if (_.is.string(this.config.logPrefix) && this.config.logPrefix.length) {
@@ -29,10 +87,13 @@ class MyAudio {
     }
   }
   log() {
-    this.usrConsole('log', arguments);
+    this.console('log', arguments);
   }
   warn() {
-    this.usrConsole('warn', arguments);
+    this.console('warn', arguments);
+  }
+  error() {
+    this.console('error', arguments);
   }
   buildControls() {
     let html = [];
@@ -47,6 +108,9 @@ class MyAudio {
         `
          <button type="button" data-myaudio="play">
           <svg><use xlink:href="#${icon.play}" /></svg>
+         </button>
+         <button type="button" data-myaudio="pause">
+          <svg><use xlink:href="#${icon.pause}" /></svg>
          </button>
         `
       );
@@ -179,17 +243,21 @@ class MyAudio {
     return toggle;
   }
   mediaListeners() {
-    _.on(this.media, 'timeupdate seeking', this.timeUpdate);
+    _.on(this.media, 'timeupdate seeking', this.timeUpdate.bind(this));
 
-    _.on(this.media, 'durationchange loadedmetadata', this.displayDuration);
+    _.on(
+      this.media,
+      'durationchange loadedmetadata',
+      this.displayDuration.bind(this)
+    );
 
-    _.on(this.media, 'progress playing', this.updateProgress);
+    _.on(this.media, 'progress playing', this.updateProgress.bind(this));
 
-    _.on(this.media, 'volumechange', this.updateVolume);
+    _.on(this.media, 'volumechange', this.updateVolume.bind(this));
 
-    _.on(this.media, 'play pause ended', this.checkPlaying);
+    _.on(this.media, 'play pause ended', this.checkPlaying.bind(this));
 
-    _.on(this.media, 'waiting canplay seeked', this.checkLoading);
+    _.on(this.media, 'waiting canplay seeked', this.checkLoading.bind(this));
 
     if (this.config.disableContextMenu) {
       _.on(this.media, 'contextmenu', function(event) {
@@ -219,7 +287,7 @@ class MyAudio {
     this.mins = parseInt((time / 60) % 60);
     this.hours = parseInt((time / 60 / 60) % 60);
 
-    var displayHours = parseInt((this.getDuration() / 60 / 60) % 60) > 0;
+    let displayHours = parseInt((this.getDuration() / 60 / 60) % 60) > 0;
 
     this.secs = ('0' + this.secs).slice(-2);
     this.mins = ('0' + this.mins).slice(-2);
@@ -232,7 +300,7 @@ class MyAudio {
       return;
     }
 
-    var duration = this.getDuration() || 0;
+    let duration = this.getDuration() || 0;
 
     if (!this.duration && this.config.displayDuration && this.media.paused) {
       this.updateTimeDisplay(duration, this.currentTime);
@@ -241,23 +309,20 @@ class MyAudio {
     if (this.duration) {
       this.updateTimeDisplay(duration, this.duration);
     }
-
-    this.updateSeekTooltip();
   }
   checkLoading(event) {
-    var loading = event.type === 'waiting';
-
+    let loading = event.type === 'waiting';
+    let _this = this;
     clearTimeout(this.timers.loading);
 
     this.timers.loading = setTimeout(function() {
-      _.toggleClass(this.container, this.config.classes.loading, loading);
+      _.toggleClass(_this.container, _this.config.classes.loading, loading);
     }, loading ? 250 : 0);
   }
   updateProgress(event) {
     if (!this.supported.full) {
       return;
     }
-
     let progress = this.progress.played;
     let value = 0;
     let duration = this.getDuration();
@@ -266,11 +331,7 @@ class MyAudio {
       switch (event.type) {
         case 'timeupdate':
         case 'seeking':
-          if (this.controls.pressed) {
-            return;
-          }
-
-          value = this.initgetPercentage(this.media.currentTime, duration);
+          value = this.getPercentage(this.media.currentTime, duration);
 
           if (event.type === 'timeupdate' && this.buttons.seek) {
             this.buttons.seek.value = value;
@@ -281,8 +342,8 @@ class MyAudio {
         case 'playing':
         case 'progress':
           progress = this.progress.buffer;
-          value = (function() {
-            var buffered = this.media.buffered;
+          value = (() => {
+            let buffered = this.media.buffered;
 
             if (buffered && buffered.length) {
               return this.getPercentage(buffered.end(0), duration);
@@ -382,7 +443,7 @@ class MyAudio {
     }
   }
   increaseVolume(step) {
-    var volume = this.media.muted
+    let volume = this.media.muted
       ? 0
       : this.media.volume * this.config.volumeMax;
 
@@ -393,7 +454,7 @@ class MyAudio {
     this.setVolume(volume + step);
   }
   decreaseVolume(step) {
-    var volume = this.media.muted
+    let volume = this.media.muted
       ? 0
       : this.media.volume * this.config.volumeMax;
 
@@ -404,7 +465,7 @@ class MyAudio {
     this.setVolume(volume - step);
   }
   updateVolume() {
-    var volume = this.media.muted
+    let volume = this.media.muted
       ? 0
       : this.media.volume * this.config.volumeMax;
 
@@ -421,19 +482,270 @@ class MyAudio {
 
     _.toggleClass(this.container, this.config.classes.muted, volume === 0);
   }
-  updateStorage(value) {
-    if (!this.config.storage.enabled) {
+  setupStorage() {
+    let value = null;
+    this.storage = {};
+    window.localStorage.removeItem('myaudio');
+    value = window.localStorage.getItem(this.config.storage.key);
+    if (!value) {
       return;
     }
-
+    if (/^\d+(\.\d+)?$/.test(value)) {
+      this.updateStorage({ volume: parseFloat(value) });
+    } else {
+      this.storage = JSON.parse(value);
+    }
+  }
+  updateStorage(value) {
     _.extend(this.storage, value);
-
     window.localStorage.setItem(
       this.config.storage.key,
       JSON.stringify(this.storage)
     );
   }
+  setupMedia() {
+    if (this.supported.full) {
+      _.toggleClass(
+        this.container,
+        this.config.classes.isIos,
+        this.browser.isIos
+      );
+
+      _.toggleClass(
+        this.container,
+        this.config.classes.isTouch,
+        this.browser.isTouch
+      );
+    }
+  }
+  event(element, type, bubbles, properties) {
+    if (!element || !type) {
+      return;
+    }
+
+    if (!_.is.boolean(bubbles)) {
+      bubbles = false;
+    }
+
+    var event = new CustomEvent(type, {
+      bubbles: bubbles,
+      detail: properties
+    });
+
+    element.dispatchEvent(event);
+  }
+  triggerEvent(element, type, bubbles, properties) {
+    this.event(
+      element,
+      type,
+      bubbles,
+      _.extend({}, properties, {
+        myaudio: this
+      })
+    );
+  }
+  seek(input) {
+    let targetTime = 0;
+    let paused = this.media.paused;
+    let duration = this.getDuration();
+
+    if (_.is.number(input)) {
+      targetTime = input;
+    } else if (
+      _.is.object(input) &&
+      _.inArray(['input', 'change'], input.type)
+    ) {
+      targetTime = input.target.value / input.target.max * duration;
+    }
+
+    if (targetTime < 0) {
+      targetTime = 0;
+    } else if (targetTime > duration) {
+      targetTime = duration;
+    }
+
+    this.updateSeekDisplay(targetTime);
+
+    try {
+      this.media.currentTime = targetTime.toFixed(4);
+    } catch (e) {}
+
+    if (paused) {
+      this.pause();
+    }
+
+    this.triggerEvent(this.media, 'timeupdate');
+
+    // this.media.seeking = true;
+
+    this.triggerEvent(this.media, 'seeking');
+  }
+  controlListeners() {
+    let _this = this;
+    let inputEvent = this.browser.isIE ? 'change' : 'input';
+
+    _.proxyListener(
+      this.buttons.play,
+      'click',
+      this.config.listeners.play,
+      this.togglePlay.bind(this)
+    );
+    _.proxyListener(
+      this.buttons.pause,
+      'click',
+      this.config.listeners.pause,
+      this.togglePlay.bind(this)
+    );
+    _.proxyListener(
+      this.buttons.seek,
+      inputEvent,
+      this.config.listeners.seek,
+      this.seek.bind(this)
+    );
+    _.proxyListener(
+      this.volume.input,
+      inputEvent,
+      this.config.listeners.volume,
+      () => {
+        this.setVolume(_this.volume.input.value);
+      }
+    );
+    _.proxyListener(
+      this.buttons.mute,
+      'click',
+      this.config.listeners.mute,
+      this.toggleMute.bind(this)
+    );
+
+    _.on(this.controls, 'mouseenter mouseleave', event => {
+      this.controls.hover = event.type === 'mouseenter';
+    });
+
+    _.on(this.volume.input, 'wheel', event => {
+      event.preventDefault();
+
+      let inverted = event.webkitDirectionInvertedFromDevice;
+      let step = this.config.volumeStep / 5;
+
+      if (event.deltaY < 0 || event.deltaX > 0) {
+        if (inverted) {
+          this.decreaseVolume(step);
+        } else {
+          this.increaseVolume(step);
+        }
+      }
+
+      if (event.deltaY > 0 || event.deltaX < 0) {
+        if (inverted) {
+          this.increaseVolume(step);
+        } else {
+          this.decreaseVolume(step);
+        }
+      }
+    });
+  }
+  getElements(selector) {
+    return this.container.querySelectorAll(selector);
+  }
+  getElement(selector) {
+    return this.getElements(selector)[0];
+  }
+  findElements() {
+    try {
+      this.controls = this.getElement(this.config.selectors.controls.wrapper);
+
+      this.buttons = {};
+      this.buttons.seek = this.getElement(this.config.selectors.buttons.seek);
+      this.buttons.play = this.getElement(this.config.selectors.buttons.play);
+      this.buttons.pause = this.getElement(this.config.selectors.buttons.pause);
+
+      // Inputs
+      this.buttons.mute = this.getElement(this.config.selectors.buttons.mute);
+
+      // Progress
+      this.progress = {};
+      this.progress.container = this.getElement(
+        this.config.selectors.progress.container
+      );
+
+      // Progress - Buffering
+      this.progress.buffer = {};
+      this.progress.buffer.bar = this.getElement(
+        this.config.selectors.progress.buffer
+      );
+
+      // Progress - Played
+      this.progress.played = this.getElement(
+        this.config.selectors.progress.played
+      );
+
+      // Volume
+      this.volume = {};
+      this.volume.input = this.getElement(this.config.selectors.volume.input);
+      this.volume.display = this.getElement(
+        this.config.selectors.volume.display
+      );
+
+      // Timing
+      this.duration = this.getElement(this.config.selectors.duration);
+      this.currentTime = this.getElement(this.config.selectors.currentTime);
+      this.log('[生命周期]', 'DOM 引用完成!');
+      return true;
+    } catch (e) {
+      this.warn('配置项中传入的控制器模板可能存在问题!');
+      return false;
+    }
+  }
+  setupInterface() {
+    let controlsMissing = !this.getElements(
+      this.config.selectors.controls.wrapper
+    ).length;
+
+    if (controlsMissing) {
+      this.injectControls();
+      this.log('[生命周期]', 'DOM 构建完成!');
+    }
+
+    if (!this.findElements()) {
+      this.warn('模板存在问题，无法继续添加事件!');
+      return;
+    }
+
+    if (controlsMissing) {
+      this.controlListeners();
+      this.log('[生命周期]', '控制器事件 添加完成!');
+    }
+
+    this.mediaListeners();
+    this.log('[生命周期]', '音频原生事件 添加完成!');
+
+    this.toggleNativeControls();
+    this.setVolume();
+    this.updateVolume();
+    this.log('[生命周期]', '声音 设置完成!');
+
+    this.timeUpdate();
+    this.log('[生命周期]', '当前时间 设置完成!');
+
+    this.checkPlaying();
+
+    this.displayDuration();
+    this.log('[生命周期]', '总时长 设置完成!');
+  }
+  toggleNativeControls(toggle) {
+    if (toggle) {
+      this.media.setAttribute('controls', '');
+    } else {
+      this.media.removeAttribute('controls');
+    }
+  }
+  ready() {
+    _.toggleClass(this.media, this.config.classes.setup, true);
+    _.toggleClass(this.container, this.config.classes.ready, true);
+    if (this.config.autoplay) {
+      this.play();
+    }
+  }
 }
 
-const myaudio = document.getElementById('myaudio');
-const audio = new MyAudio(myaudio);
+window.MyAudio = MyAudio;

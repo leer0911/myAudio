@@ -11,6 +11,7 @@
   background: $myaudio-audio-controls-bg;
   border: $myaudio-audio-controls-border;
   color: $myaudio-audio-control-color;
+  font-family: $myaudio-font-family;
 
   & > * {
     pointer-events: all;
@@ -146,7 +147,6 @@
       margin-left: $myaudio-control-spacing;
     }
   }
-
 }
 
 .myaudio__progress {
@@ -274,7 +274,6 @@
   }
 }
 
-
 // 加载样式 -----------------------------------------------------------
 .myaudio--loading .myaudio__progress--buffer {
   animation: myaudio-progress 1s linear infinite;
@@ -297,5 +296,26 @@
 @keyframes myaudio-progress {
   to {
     background-position: $myaudio-progress-loading-size 0;
+  }
+}
+
+// States -----------------------------------------------------------
+.myaudio__controls [data-myaudio='pause'] {
+  margin-left: 0;
+}
+.myaudio__controls [data-myaudio='pause'],
+.myaudio--playing .myaudio__controls [data-myaudio='play'] {
+  display: none;
+}
+.myaudio--playing .myaudio__controls [data-myaudio='pause'] {
+  display: inline-block;
+}
+
+// Change icons on state change
+.myaudio--muted .myaudio__controls .icon--muted {
+  display: block;
+
+  & + svg {
+    display: none;
   }
 }
