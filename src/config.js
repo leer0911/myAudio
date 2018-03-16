@@ -58,12 +58,7 @@ export default {
     seek: null,
     play: null,
     pause: null,
-    restart: null,
-    rewind: null,
-    forward: null,
     mute: null,
-    volume: null,
-    captions: null,
-    fullscreen: null
+    volume: null
   }
 };

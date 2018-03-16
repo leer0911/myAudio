@@ -2,7 +2,7 @@
 
 > 本项目是用 `webpack` 结合 `npm` 命令行，来实现打包 。( 非 webpack 命令行 )
 
-`package.json` 里面 `script` 属性里配置了两个命令，`build` 和 `dev`
+`package.json` 文件中 `script` 属性配置了两个命令，`build` 和 `dev`
 
 下面分三部分讲解本项目中 `webpack` 的使用
 
@@ -10,9 +10,11 @@
 * [dev](#dev)
 * [build](#build)
 
-### [base-config](../build/base-config.js)
+### base-config
 
-此文件为 webpack 基础配置，包括入口文件，打包输出目录，常用 loader。
+[webpack.config.js](https://github.com/leer0911/myAudio/blob/master/build/webpack.config.js) 文件为 webpack 基础配置，包括入口文件，打包输出目录，常用 loader。
+
+代码中的 `resolve` 函数用于将文件准确定位以及解决不同系统路径不同的问题。由于配置文件是在 build 目录下，所以此时 `__dirname` 为 build 目录地址，使用 `path.join`，带参数`'..'`后可获得根目录路径。详细资料，可以了解 node 对应 [path 模块](http://nodejs.cn/api/path.html)
 
 ```js
 function resolve(dir) {
@@ -20,16 +22,14 @@ function resolve(dir) {
 }
 ```
 
-`resolve`函数用于将文件准确定位以及解决不同系统路径不同的问题。由于配置文件是在 build 目录下，所以此时 `__dirname` 为 build 目录地址，使用 `path.join`，带参数`'..'`后可获得根目录路径。详细资料，可以了解 node 对应 [path 模块](http://nodejs.cn/api/path.html)
+### build
 
-### [build](../build/build.js)
+[build.js](https://github.com/leer0911/myAudio/blob/master/build/build.js)
+配置中，主要用到[CleanWebpackPlugin](https://github.com/johnagan/clean-webpack-plugin)和[UglifyjsWebpackPlugin](https://github.com/webpack-contrib/uglifyjs-webpack-plugin)插件。
 
-主要用到[CleanWebpackPlugin](https://github.com/johnagan/clean-webpack-plugin)和[UglifyjsWebpackPlugin](https://github.com/webpack-contrib/uglifyjs-webpack-plugin)插件。
-
-**在使用`CleanWebpackPlugin`时需要注意路径问题。**
+构建配置主要代码如下：
 
 ```js
-// 该部分主要实现构建
 webpack(webpackConfig, function(err, stats) {
   process.stdout.write(
     stats.toString({
@@ -45,9 +45,9 @@ webpack(webpackConfig, function(err, stats) {
 
 `process.stdout`相关配置可以参阅[process](http://nodejs.cn/api/process.html)
 
-### [dev](../build/dev.js)
+### [dev]
 
-开发环境部分主要用到了 [express](http://expressjs.jser.us/4x_zh-cn/api.html) ，[webpackDevMiddleware](https://github.com/webpack/webpack-dev-middleware) ，[HtmlWebpackPlugin](https://github.com/jantimon/html-webpack-plugin),[webpackHotMiddleware](https://github.com/glenjamin/webpack-hot-middleware#readme)
+[dev.js](https://github.com/leer0911/myAudio/blob/master/build/dev.js) 开发环境配置中，主要用到了 [express](http://expressjs.jser.us/4x_zh-cn/api.html) ，[webpackDevMiddleware](https://github.com/webpack/webpack-dev-middleware) ，[HtmlWebpackPlugin](https://github.com/jantimon/html-webpack-plugin),[webpackHotMiddleware](https://github.com/glenjamin/webpack-hot-middleware#readme)
 
 要注意的是如果需要自定义模板需要配置 `HtmlWebpackPlugin`
 
@@ -73,7 +73,7 @@ app.listen(3000, function() {
 [webpackDevMiddleware](https://github.com/webpack/webpack-dev-middleware)
 [webpackHotMiddleware](https://github.com/glenjamin/webpack-hot-middleware#readme)
 
-* 首先在中配置相关的插件 [dev](../build/dev.js)
+* 首先在[dev](https://github.com/leer0911/myAudio/blob/master/build/dev.js)中配置相关的插件
 
 ```js
 plugins: [
@@ -89,7 +89,7 @@ plugins: [
 ];
 ```
 
-* 处理入口 [dev](../build/dev.js)
+* 处理入口 [dev](https://github.com/leer0911/myAudio/blob/master/build/dev.js)
 
 ```js
 // 需要在入口配置 'webpack-hot-middleware/client' 参考 https://github.com/glenjamin/webpack-hot-middleware
@@ -100,7 +100,7 @@ Object.keys(baseWebpackConfig.entry).forEach(function(name) {
 });
 ```
 
-* 在 server 启动时挂载 [dev](../build/server.js)
+* 在 server 启动时挂载 [dev](https://github.com/leer0911/myAudio/blob/master/build/server.js)
 
 ```js
 const compiler = webpack(config);
@@ -133,7 +133,7 @@ compiler.plugin('compilation', function(compilation) {
 
 记得要安装 `node-sass`
 
-[autoprefixer的配置](./autoprefixer.md)
+[autoprefixer 的配置](https://github.com/leer0911/myAudio/blob/master/doc/autoprefixer.md)
 
 * 错误友好提示
 
