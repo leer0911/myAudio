@@ -13,6 +13,7 @@ export default {
   html: '',
   logPrefix: '日志：',
   debug: true,
+  displayDuration: true,
   disableContextMenu: true,
   classes: {
     setup: 'myaudio--setup',

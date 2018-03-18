@@ -36,6 +36,8 @@ class MyAudio {
 
     this.init();
   }
+  // 初始化相关
+  // -------------------------------
   init() {
     if (this.isInit) {
       return null;
@@ -68,6 +70,23 @@ class MyAudio {
     // // Successful setup
     this.isInit = true;
   }
+  toggleNativeControls(toggle) {
+    if (toggle) {
+      this.media.setAttribute('controls', '');
+    } else {
+      this.media.removeAttribute('controls');
+    }
+  }
+  ready() {
+    _.toggleClass(this.media, this.config.classes.setup, true);
+    _.toggleClass(this.container, this.config.classes.ready, true);
+    if (this.config.autoplay) {
+      this.play();
+    }
+  }
+
+  // 工具相关
+  // -------------------------------
   supported() {
     let browser = this.browser;
     let isOldIE = browser.isIE && browser.version <= 9;
@@ -95,6 +114,87 @@ class MyAudio {
   error() {
     this.console('error', arguments);
   }
+  event(element, type, bubbles, properties) {
+    if (!element || !type) {
+      return;
+    }
+
+    if (!_.is.boolean(bubbles)) {
+      bubbles = false;
+    }
+
+    var event = new CustomEvent(type, {
+      bubbles: bubbles,
+      detail: properties
+    });
+
+    element.dispatchEvent(event);
+  }
+  triggerEvent(element, type, bubbles, properties) {
+    this.event(
+      element,
+      type,
+      bubbles,
+      _.extend({}, properties, {
+        myaudio: this
+      })
+    );
+  }
+  getElements(selector) {
+    return this.container.querySelectorAll(selector);
+  }
+  getElement(selector) {
+    return this.getElements(selector)[0];
+  }
+  findElements() {
+    try {
+      this.controls = this.getElement(this.config.selectors.controls.wrapper);
+
+      this.buttons = {};
+      this.buttons.seek = this.getElement(this.config.selectors.buttons.seek);
+      this.buttons.play = this.getElement(this.config.selectors.buttons.play);
+      this.buttons.pause = this.getElement(this.config.selectors.buttons.pause);
+
+      // Inputs
+      this.buttons.mute = this.getElement(this.config.selectors.buttons.mute);
+
+      // Progress
+      this.progress = {};
+      this.progress.container = this.getElement(
+        this.config.selectors.progress.container
+      );
+
+      // Progress - Buffering
+      this.progress.buffer = {};
+      this.progress.buffer.bar = this.getElement(
+        this.config.selectors.progress.buffer
+      );
+
+      // Progress - Played
+      this.progress.played = this.getElement(
+        this.config.selectors.progress.played
+      );
+
+      // Volume
+      this.volume = {};
+      this.volume.input = this.getElement(this.config.selectors.volume.input);
+      this.volume.display = this.getElement(
+        this.config.selectors.volume.display
+      );
+
+      // Timing
+      this.duration = this.getElement(this.config.selectors.duration);
+      this.currentTime = this.getElement(this.config.selectors.currentTime);
+      this.log('[生命周期]', 'DOM 引用完成!');
+      return true;
+    } catch (e) {
+      this.warn('配置项中传入的控制器模板可能存在问题!');
+      return false;
+    }
+  }
+
+  // UI相关
+  // -------------------------------
   buildControls() {
     let html = [];
     let config = this.config;
@@ -188,60 +288,45 @@ class MyAudio {
 
     this.media.insertAdjacentHTML('beforeBegin', this.html);
   }
-  updateSeekDisplay(time) {
-    if (!_.is.number(time)) {
-      time = 0;
+  setupInterface() {
+    let controlsMissing = !this.getElements(
+      this.config.selectors.controls.wrapper
+    ).length;
+
+    if (controlsMissing) {
+      this.injectControls();
+      this.log('[生命周期]', 'DOM 构建完成!');
     }
 
-    let duration = this.getDuration();
-    let value = this.getPercentage(time, duration);
-    if (this.progress && this.progress.played) {
-      this.progress.played.value = value;
+    if (!this.findElements()) {
+      this.warn('模板存在问题，无法继续添加事件!');
+      return;
     }
 
-    if (this.buttons && this.buttons.seek) {
-      this.buttons.seek.value = value;
-    }
-  }
-  getPercentage(current, max) {
-    if (current === 0 || max === 0 || isNaN(current) || isNaN(max)) {
-      return 0;
-    }
-    return (current / max * 100).toFixed(2);
-  }
-  getDuration() {
-    let duration = parseInt(this.config.duration);
-    let mediaDuration = 0;
-
-    if (this.media.duration !== null && !isNaN(this.media.duration)) {
-      mediaDuration = this.media.duration;
+    if (controlsMissing) {
+      this.controlListeners();
+      this.log('[生命周期]', '控制器事件 添加完成!');
     }
 
-    return isNaN(duration) ? mediaDuration : duration;
-  }
-  play() {
-    if ('play' in this.media) {
-      this.media.play();
-    }
-  }
-  pause() {
-    if ('pause' in this.media) {
-      this.media.pause();
-    }
-  }
-  togglePlay(toggle) {
-    if (!_.is.boolean(toggle)) {
-      toggle = this.media.paused;
-    }
+    this.mediaListeners();
+    this.log('[生命周期]', '音频原生事件 添加完成!');
 
-    if (toggle) {
-      this.play();
-    } else {
-      this.pause();
-    }
+    this.toggleNativeControls();
+    this.setVolume();
+    this.updateVolume();
+    this.log('[生命周期]', '声音 设置完成!');
 
-    return toggle;
+    this.timeUpdate();
+    this.log('[生命周期]', '当前时间 设置完成!');
+
+    this.checkPlaying();
+
+    this.displayDuration();
+    this.log('[生命周期]', '总时长 设置完成!');
   }
+
+  // 媒体事件
+  // -------------------------------
   mediaListeners() {
     _.on(this.media, 'timeupdate seeking', this.timeUpdate.bind(this));
 
@@ -294,30 +379,6 @@ class MyAudio {
 
     element.innerHTML =
       (displayHours ? this.hours + ':' : '') + this.mins + ':' + this.secs;
-  }
-  displayDuration() {
-    if (!this.supported.full) {
-      return;
-    }
-
-    let duration = this.getDuration() || 0;
-
-    if (!this.duration && this.config.displayDuration && this.media.paused) {
-      this.updateTimeDisplay(duration, this.currentTime);
-    }
-
-    if (this.duration) {
-      this.updateTimeDisplay(duration, this.duration);
-    }
-  }
-  checkLoading(event) {
-    let loading = event.type === 'waiting';
-    let _this = this;
-    clearTimeout(this.timers.loading);
-
-    this.timers.loading = setTimeout(function() {
-      _.toggleClass(_this.container, _this.config.classes.loading, loading);
-    }, loading ? 250 : 0);
   }
   updateProgress(event) {
     if (!this.supported.full) {
@@ -388,6 +449,57 @@ class MyAudio {
       }
     }
   }
+  getPercentage(current, max) {
+    if (current === 0 || max === 0 || isNaN(current) || isNaN(max)) {
+      return 0;
+    }
+    return (current / max * 100).toFixed(2);
+  }
+  getDuration() {
+    let duration = parseInt(this.config.duration);
+    let mediaDuration = 0;
+
+    if (this.media.duration !== null && !isNaN(this.media.duration)) {
+      mediaDuration = this.media.duration;
+    }
+
+    return isNaN(duration) ? mediaDuration : duration;
+  }
+  displayDuration() {
+    if (!this.supported.full) {
+      return;
+    }
+
+    let duration = this.getDuration() || 0;
+
+    // 只在开始的时候显示时长，设置的条件是没有时长的DOM，displayDuration 为true，视频暂停时。
+    if (!this.duration && this.config.displayDuration && this.media.paused) {
+      this.updateTimeDisplay(duration, this.currentTime);
+    }
+
+    if (this.duration) {
+      this.updateTimeDisplay(duration, this.duration);
+    }
+  }
+  play() {
+    if ('play' in this.media) {
+      this.media.play();
+    }
+  }
+  pause() {
+    if ('pause' in this.media) {
+      this.media.pause();
+    }
+  }
+  checkLoading(event) {
+    let loading = event.type === 'waiting';
+    let _this = this;
+    clearTimeout(this.timers.loading);
+
+    this.timers.loading = setTimeout(function() {
+      _.toggleClass(_this.container, _this.config.classes.loading, loading);
+    }, loading ? 250 : 0);
+  }
   checkPlaying() {
     _.toggleClass(
       this.container,
@@ -400,70 +512,7 @@ class MyAudio {
       this.media.paused
     );
   }
-  toggleMute(muted) {
-    if (!_.is.boolean(muted)) {
-      muted = !this.media.muted;
-    }
 
-    this.media.muted = muted;
-
-    if (this.media.volume === 0) {
-      this.setVolume(this.config.volume);
-    }
-  }
-  setVolume(volume) {
-    let max = this.config.volumeMax;
-    let min = this.config.volumeMin;
-
-    if (_.is.undefined(volume)) {
-      volume = this.storage.volume;
-    }
-
-    if (volume === null || isNaN(volume)) {
-      volume = this.config.volume;
-    }
-
-    if (volume > max) {
-      volume = max;
-    }
-    if (volume < min) {
-      volume = min;
-    }
-
-    this.media.volume = parseFloat(volume / max);
-
-    if (this.volume.display) {
-      this.volume.display.value = volume;
-    }
-
-    if (volume === 0) {
-      this.media.muted = true;
-    } else if (this.media.muted && volume > 0) {
-      this.toggleMute();
-    }
-  }
-  increaseVolume(step) {
-    let volume = this.media.muted
-      ? 0
-      : this.media.volume * this.config.volumeMax;
-
-    if (!_.is.number(step)) {
-      step = this.config.volumeStep;
-    }
-
-    this.setVolume(volume + step);
-  }
-  decreaseVolume(step) {
-    let volume = this.media.muted
-      ? 0
-      : this.media.volume * this.config.volumeMax;
-
-    if (!_.is.number(step)) {
-      step = this.config.volumeStep;
-    }
-
-    this.setVolume(volume - step);
-  }
   updateVolume() {
     let volume = this.media.muted
       ? 0
@@ -482,6 +531,7 @@ class MyAudio {
 
     _.toggleClass(this.container, this.config.classes.muted, volume === 0);
   }
+
   setupStorage() {
     let value = null;
     this.storage = {};
@@ -518,68 +568,9 @@ class MyAudio {
       );
     }
   }
-  event(element, type, bubbles, properties) {
-    if (!element || !type) {
-      return;
-    }
 
-    if (!_.is.boolean(bubbles)) {
-      bubbles = false;
-    }
-
-    var event = new CustomEvent(type, {
-      bubbles: bubbles,
-      detail: properties
-    });
-
-    element.dispatchEvent(event);
-  }
-  triggerEvent(element, type, bubbles, properties) {
-    this.event(
-      element,
-      type,
-      bubbles,
-      _.extend({}, properties, {
-        myaudio: this
-      })
-    );
-  }
-  seek(input) {
-    let targetTime = 0;
-    let paused = this.media.paused;
-    let duration = this.getDuration();
-
-    if (_.is.number(input)) {
-      targetTime = input;
-    } else if (
-      _.is.object(input) &&
-      _.inArray(['input', 'change'], input.type)
-    ) {
-      targetTime = input.target.value / input.target.max * duration;
-    }
-
-    if (targetTime < 0) {
-      targetTime = 0;
-    } else if (targetTime > duration) {
-      targetTime = duration;
-    }
-
-    this.updateSeekDisplay(targetTime);
-
-    try {
-      this.media.currentTime = targetTime.toFixed(4);
-    } catch (e) {}
-
-    if (paused) {
-      this.pause();
-    }
-
-    this.triggerEvent(this.media, 'timeupdate');
-
-    // this.media.seeking = true;
-
-    this.triggerEvent(this.media, 'seeking');
-  }
+  // 播放器事件
+  // -------------------------------
   controlListeners() {
     let _this = this;
     let inputEvent = this.browser.isIE ? 'change' : 'input';
@@ -644,107 +635,130 @@ class MyAudio {
       }
     });
   }
-  getElements(selector) {
-    return this.container.querySelectorAll(selector);
-  }
-  getElement(selector) {
-    return this.getElements(selector)[0];
-  }
-  findElements() {
+  seek(input) {
+    let targetTime = 0;
+    let paused = this.media.paused;
+    let duration = this.getDuration();
+
+    if (_.is.number(input)) {
+      targetTime = input;
+    } else if (
+      _.is.object(input) &&
+      _.inArray(['input', 'change'], input.type)
+    ) {
+      targetTime = input.target.value / input.target.max * duration;
+    }
+
+    if (targetTime < 0) {
+      targetTime = 0;
+    } else if (targetTime > duration) {
+      targetTime = duration;
+    }
+
+    this.updateSeekDisplay(targetTime);
+
     try {
-      this.controls = this.getElement(this.config.selectors.controls.wrapper);
+      this.media.currentTime = targetTime.toFixed(4);
+    } catch (e) {}
 
-      this.buttons = {};
-      this.buttons.seek = this.getElement(this.config.selectors.buttons.seek);
-      this.buttons.play = this.getElement(this.config.selectors.buttons.play);
-      this.buttons.pause = this.getElement(this.config.selectors.buttons.pause);
+    if (paused) {
+      this.pause();
+    }
 
-      // Inputs
-      this.buttons.mute = this.getElement(this.config.selectors.buttons.mute);
+    this.triggerEvent(this.media, 'timeupdate');
+    this.triggerEvent(this.media, 'seeking');
+  }
+  updateSeekDisplay(time) {
+    if (!_.is.number(time)) {
+      time = 0;
+    }
 
-      // Progress
-      this.progress = {};
-      this.progress.container = this.getElement(
-        this.config.selectors.progress.container
-      );
+    let duration = this.getDuration();
+    let value = this.getPercentage(time, duration);
+    if (this.progress && this.progress.played) {
+      this.progress.played.value = value;
+    }
 
-      // Progress - Buffering
-      this.progress.buffer = {};
-      this.progress.buffer.bar = this.getElement(
-        this.config.selectors.progress.buffer
-      );
-
-      // Progress - Played
-      this.progress.played = this.getElement(
-        this.config.selectors.progress.played
-      );
-
-      // Volume
-      this.volume = {};
-      this.volume.input = this.getElement(this.config.selectors.volume.input);
-      this.volume.display = this.getElement(
-        this.config.selectors.volume.display
-      );
-
-      // Timing
-      this.duration = this.getElement(this.config.selectors.duration);
-      this.currentTime = this.getElement(this.config.selectors.currentTime);
-      this.log('[生命周期]', 'DOM 引用完成!');
-      return true;
-    } catch (e) {
-      this.warn('配置项中传入的控制器模板可能存在问题!');
-      return false;
+    if (this.buttons && this.buttons.seek) {
+      this.buttons.seek.value = value;
     }
   }
-  setupInterface() {
-    let controlsMissing = !this.getElements(
-      this.config.selectors.controls.wrapper
-    ).length;
-
-    if (controlsMissing) {
-      this.injectControls();
-      this.log('[生命周期]', 'DOM 构建完成!');
+  togglePlay(toggle) {
+    if (!_.is.boolean(toggle)) {
+      toggle = this.media.paused;
     }
 
-    if (!this.findElements()) {
-      this.warn('模板存在问题，无法继续添加事件!');
-      return;
-    }
-
-    if (controlsMissing) {
-      this.controlListeners();
-      this.log('[生命周期]', '控制器事件 添加完成!');
-    }
-
-    this.mediaListeners();
-    this.log('[生命周期]', '音频原生事件 添加完成!');
-
-    this.toggleNativeControls();
-    this.setVolume();
-    this.updateVolume();
-    this.log('[生命周期]', '声音 设置完成!');
-
-    this.timeUpdate();
-    this.log('[生命周期]', '当前时间 设置完成!');
-
-    this.checkPlaying();
-
-    this.displayDuration();
-    this.log('[生命周期]', '总时长 设置完成!');
-  }
-  toggleNativeControls(toggle) {
     if (toggle) {
-      this.media.setAttribute('controls', '');
+      this.play();
     } else {
-      this.media.removeAttribute('controls');
+      this.pause();
+    }
+
+    return toggle;
+  }
+  toggleMute(muted) {
+    if (!_.is.boolean(muted)) {
+      muted = !this.media.muted;
+    }
+
+    this.media.muted = muted;
+
+    if (this.media.volume === 0) {
+      this.setVolume(this.config.volume);
     }
   }
-  ready() {
-    _.toggleClass(this.media, this.config.classes.setup, true);
-    _.toggleClass(this.container, this.config.classes.ready, true);
-    if (this.config.autoplay) {
-      this.play();
+  setVolume(volume) {
+    let max = this.config.volumeMax;
+    let min = this.config.volumeMin;
+
+    if (_.is.undefined(volume)) {
+      volume = this.storage.volume;
     }
+
+    if (volume === null || isNaN(volume)) {
+      volume = this.config.volume;
+    }
+
+    if (volume > max) {
+      volume = max;
+    }
+    if (volume < min) {
+      volume = min;
+    }
+
+    this.media.volume = parseFloat(volume / max);
+
+    if (this.volume.display) {
+      this.volume.display.value = volume;
+    }
+
+    if (volume === 0) {
+      this.media.muted = true;
+    } else if (this.media.muted && volume > 0) {
+      this.toggleMute();
+    }
+  }
+  increaseVolume(step) {
+    let volume = this.media.muted
+      ? 0
+      : this.media.volume * this.config.volumeMax;
+
+    if (!_.is.number(step)) {
+      step = this.config.volumeStep;
+    }
+
+    this.setVolume(volume + step);
+  }
+  decreaseVolume(step) {
+    let volume = this.media.muted
+      ? 0
+      : this.media.volume * this.config.volumeMax;
+
+    if (!_.is.number(step)) {
+      step = this.config.volumeStep;
+    }
+
+    this.setVolume(volume - step);
   }
 }
 
